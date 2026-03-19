@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1773478410729,
+      "tag": "0000_sudden_drax",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1773478501646,
+      "tag": "0001_freezing_talos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773479577622,
+      "tag": "0002_stiff_silverclaw",
+      "breakpoints": true
+    }
+  ]
+}
