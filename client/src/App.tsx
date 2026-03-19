@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Link, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -13,7 +13,7 @@ function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/ "} component={Home} />
+      <Route path="/" component={Home} />
       <Route path={"/shopping-list"} component={ShoppingListPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
       <Route path={"/404"} component={NotFound} />
@@ -40,20 +40,20 @@ function App() {
                   <h1 className="text-xl font-bold">Meal Store Finder</h1>
                 </div>
                 <nav className="hidden md:flex gap-6 flex-1 ml-8">
-                  <a href="/" className="text-sm font-medium hover:text-accent transition-colors">
+                  <Link href="/" className="text-sm font-medium hover:text-accent transition-colors">
                     Home
-                  </a>
-                  <a href="#meals" className="text-sm font-medium hover:text-accent transition-colors">
+                  </Link>
+                  <Link href="/?tab=meals" className="text-sm font-medium hover:text-accent transition-colors">
                     Meals
-                  </a>
-                  <a href="#products" className="text-sm font-medium hover:text-accent transition-colors">
+                  </Link>
+                  <Link href="/?tab=prices" className="text-sm font-medium hover:text-accent transition-colors">
                     Products
-                  </a>
-                  <a href="#stores" className="text-sm font-medium hover:text-accent transition-colors">
+                  </Link>
+                  <Link href="/?tab=stores" className="text-sm font-medium hover:text-accent transition-colors">
                     Stores
-                  </a>
+                  </Link>
                 </nav>
-                <CartButton onClick={() => window.location.href = '/shopping-list'} />
+                <CartButton />
               </div>
             </header>
 

@@ -2,19 +2,24 @@ import { ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
+import { useLocation } from 'wouter';
+import { useAuth } from '@/_core/hooks/useAuth';
 
-interface CartButtonProps {
-  onClick?: () => void;
-}
+export default function CartButton() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
 
-export default function CartButton({ onClick }: CartButtonProps) {
-  const { data: cartSummary } = trpc.cart.getSummary.useQuery();
+  // Only query cart summary when authenticated
+  const { data: cartSummary } = trpc.cart.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   return (
     <Button
       variant="outline"
       size="lg"
-      onClick={onClick}
+      onClick={() => setLocation('/shopping-list')}
       className="relative"
     >
       <ShoppingBag className="w-5 h-5" />

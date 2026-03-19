@@ -1,19 +1,50 @@
 import { eq, and, desc, asc } from "drizzle-orm";
 import { productPrices, priceHistory, apiSyncLogs, storeLocations, products, type InsertProductPrice, type InsertPriceHistory, type InsertApiSyncLog } from "../drizzle/schema";
 import { getDb } from "./db";
+import { getFirestore } from "./_core/firebase";
+import { DEMO_STORES, DEMO_PRODUCTS, DEMO_PRICES } from "./demoData";
 
 /**
  * Get all current prices for a product across all stores
  */
 export async function getProductPrices(productId: string) {
-  const db = await getDb();
-  if (!db) return [];
+  // Try Firebase first
+  const firestore = getFirestore();
+  if (firestore) {
+    const snap = await firestore.collection('productPrices')
+      .where('productId', '==', productId)
+      .orderBy('price', 'asc')
+      .get();
+    if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+  }
 
-  return await db
-    .select()
-    .from(productPrices)
-    .where(eq(productPrices.productId, productId))
-    .orderBy(asc(productPrices.price));
+  // Try MySQL
+  const db = await getDb();
+  if (db) {
+    return await db
+      .select()
+      .from(productPrices)
+      .where(eq(productPrices.productId, productId))
+      .orderBy(asc(productPrices.price));
+  }
+
+  // Fallback to demo data
+  return DEMO_PRICES
+    .filter(p => p.productId === productId)
+    .sort((a, b) => a.price - b.price)
+    .map(p => ({
+      id: `${p.productId}-${p.storeId}`,
+      productId: p.productId,
+      storeId: p.storeId,
+      price: p.price.toString(),
+      inStock: p.inStock,
+      stockLevel: null,
+      source: 'demo',
+      externalId: null,
+      lastUpdatedAt: p.lastUpdatedAt,
+      createdAt: p.lastUpdatedAt,
+      updatedAt: p.lastUpdatedAt,
+    }));
 }
 
 /**
@@ -21,16 +52,34 @@ export async function getProductPrices(productId: string) {
  */
 export async function getBestPrice(productId: string) {
   const db = await getDb();
-  if (!db) return null;
+  if (db) {
+    const result = await db
+      .select()
+      .from(productPrices)
+      .where(and(eq(productPrices.productId, productId), eq(productPrices.inStock, true)))
+      .orderBy(asc(productPrices.price))
+      .limit(1);
+    if (result.length > 0) return result[0];
+  }
 
-  const result = await db
-    .select()
-    .from(productPrices)
-    .where(and(eq(productPrices.productId, productId), eq(productPrices.inStock, true)))
-    .orderBy(asc(productPrices.price))
-    .limit(1);
-
-  return result.length > 0 ? result[0] : null;
+  // Fallback to demo data
+  const best = DEMO_PRICES
+    .filter(p => p.productId === productId && p.inStock)
+    .sort((a, b) => a.price - b.price)[0];
+  if (!best) return null;
+  return {
+    id: `${best.productId}-${best.storeId}`,
+    productId: best.productId,
+    storeId: best.storeId,
+    price: best.price.toString(),
+    inStock: best.inStock,
+    stockLevel: null,
+    source: 'demo',
+    externalId: null,
+    lastUpdatedAt: best.lastUpdatedAt,
+    createdAt: best.lastUpdatedAt,
+    updatedAt: best.lastUpdatedAt,
+  };
 }
 
 /**
@@ -38,13 +87,31 @@ export async function getBestPrice(productId: string) {
  */
 export async function getStorePrices(storeId: string) {
   const db = await getDb();
-  if (!db) return [];
+  if (db) {
+    const result = await db
+      .select()
+      .from(productPrices)
+      .where(eq(productPrices.storeId, storeId))
+      .orderBy(desc(productPrices.lastUpdatedAt));
+    if (result.length > 0) return result;
+  }
 
-  return await db
-    .select()
-    .from(productPrices)
-    .where(eq(productPrices.storeId, storeId))
-    .orderBy(desc(productPrices.lastUpdatedAt));
+  // Fallback to demo data
+  return DEMO_PRICES
+    .filter(p => p.storeId === storeId)
+    .map(p => ({
+      id: `${p.productId}-${p.storeId}`,
+      productId: p.productId,
+      storeId: p.storeId,
+      price: p.price.toString(),
+      inStock: p.inStock,
+      stockLevel: null,
+      source: 'demo',
+      externalId: null,
+      lastUpdatedAt: p.lastUpdatedAt,
+      createdAt: p.lastUpdatedAt,
+      updatedAt: p.lastUpdatedAt,
+    }));
 }
 
 /**
@@ -176,56 +243,162 @@ export async function getRecentSyncLogs(storeChain: string, limit: number = 10) 
  * Get all active stores
  */
 export async function getActiveStores() {
-  const db = await getDb();
-  if (!db) return [];
+  // Try Firebase first
+  const firestore = getFirestore();
+  if (firestore) {
+    const snap = await firestore.collection('storeLocations')
+      .where('isActive', '==', true)
+      .get();
+    if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+  }
 
-  return await db
-    .select()
-    .from(storeLocations)
-    .where(eq(storeLocations.isActive, true));
+  // Try MySQL
+  const db = await getDb();
+  if (db) {
+    const result = await db
+      .select()
+      .from(storeLocations)
+      .where(eq(storeLocations.isActive, true));
+    if (result.length > 0) return result;
+  }
+
+  // Fallback to demo data
+  return DEMO_STORES.filter(s => s.isActive).map(s => ({
+    ...s,
+    latitude: s.latitude.toString(),
+    longitude: s.longitude.toString(),
+    rating: s.rating.toString(),
+    lastSyncedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
 }
 
 /**
  * Get all products
  */
 export async function getAllProducts() {
-  const db = await getDb();
-  if (!db) return [];
+  // Try Firebase first
+  const firestore = getFirestore();
+  if (firestore) {
+    const snap = await firestore.collection('products').get();
+    if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+  }
 
-  return await db.select().from(products);
+  // Try MySQL
+  const db = await getDb();
+  if (db) {
+    const result = await db.select().from(products);
+    if (result.length > 0) return result;
+  }
+
+  // Fallback to demo data
+  return DEMO_PRODUCTS.map(p => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    cuisine: p.cuisine,
+    basePrice: p.basePrice.toString(),
+    description: p.description,
+    brand: p.brand,
+    isWheatFree: p.isWheatFree,
+    isDairyFree: p.isDairyFree,
+    imageUrl: p.imageUrl,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
 }
 
 /**
  * Get products by cuisine
  */
 export async function getProductsByCuisine(cuisine: string) {
-  const db = await getDb();
-  if (!db) return [];
+  // Try Firebase first
+  const firestore = getFirestore();
+  if (firestore) {
+    const snap = await firestore.collection('products')
+      .where('cuisine', '==', cuisine)
+      .get();
+    if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+  }
 
-  return await db
-    .select()
-    .from(products)
-    .where(eq(products.cuisine, cuisine as any));
+  // Try MySQL
+  const db = await getDb();
+  if (db) {
+    const result = await db
+      .select()
+      .from(products)
+      .where(eq(products.cuisine, cuisine as any));
+    if (result.length > 0) return result;
+  }
+
+  // Fallback to demo data
+  return DEMO_PRODUCTS
+    .filter(p => p.cuisine.toLowerCase() === cuisine.toLowerCase())
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      cuisine: p.cuisine,
+      basePrice: p.basePrice.toString(),
+      description: p.description,
+      brand: p.brand,
+      isWheatFree: p.isWheatFree,
+      isDairyFree: p.isDairyFree,
+      imageUrl: p.imageUrl,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
 }
 
 /**
  * Get price statistics for a product
  */
 export async function getPriceStats(productId: string) {
-  const db = await getDb();
-  if (!db) return null;
+  let priceRows: { price: number; inStock: boolean }[] = [];
 
-  const prices = await db
-    .select({
-      price: productPrices.price,
-      inStock: productPrices.inStock,
-    })
-    .from(productPrices)
-    .where(eq(productPrices.productId, productId));
+  // Try Firebase first
+  const firestore = getFirestore();
+  if (firestore) {
+    const snap = await firestore.collection('productPrices')
+      .where('productId', '==', productId)
+      .get();
+    if (!snap.empty) {
+      priceRows = snap.docs.map(d => {
+        const data = d.data();
+        return { price: parseFloat(data.price?.toString() || '0'), inStock: Boolean(data.inStock) };
+      });
+    }
+  }
 
-  if (prices.length === 0) return null;
+  // Try MySQL
+  if (priceRows.length === 0) {
+    const db = await getDb();
+    if (db) {
+      const rows = await db
+        .select({
+          price: productPrices.price,
+          inStock: productPrices.inStock,
+        })
+        .from(productPrices)
+        .where(eq(productPrices.productId, productId));
+      priceRows = rows.map(r => ({
+        price: parseFloat(r.price.toString()),
+        inStock: r.inStock ?? false,
+      }));
+    }
+  }
 
-  const inStockPrices = prices.filter((p) => p.inStock).map((p) => parseFloat(p.price.toString()));
+  // Fallback to demo data
+  if (priceRows.length === 0) {
+    priceRows = DEMO_PRICES
+      .filter(p => p.productId === productId)
+      .map(p => ({ price: p.price, inStock: p.inStock }));
+  }
+
+  if (priceRows.length === 0) return null;
+
+  const inStockPrices = priceRows.filter((p) => p.inStock).map((p) => p.price);
 
   if (inStockPrices.length === 0) return null;
 
@@ -240,7 +413,7 @@ export async function getPriceStats(productId: string) {
     max,
     avg: parseFloat(avg.toFixed(2)),
     median,
-    storesWithStock: prices.filter((p) => p.inStock).length,
-    totalStores: prices.length,
+    storesWithStock: priceRows.filter((p) => p.inStock).length,
+    totalStores: priceRows.length,
   };
 }

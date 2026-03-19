@@ -3,18 +3,30 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, AlertCircle, TrendingDown, MapPin, Clock } from 'lucide-react';
+import { CheckCircle, AlertCircle, TrendingDown, MapPin, Clock, LogIn } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { useAuth } from '@/_core/hooks/useAuth';
+import { getLoginUrl } from '@/const';
 
 export default function CheckoutPage() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // Fetch cart and store data
-  const { data: cartSummary } = trpc.cart.getSummary.useQuery();
-  const { data: itemsByStore } = trpc.cart.getItemsByStore.useQuery();
-  const { data: bestStore } = trpc.cart.calculateBestStore.useQuery();
+  // Fetch cart and store data (only when authenticated)
+  const { data: cartSummary } = trpc.cart.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: itemsByStore } = trpc.cart.getItemsByStore.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: bestStore } = trpc.cart.calculateBestStore.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   // Checkout mutation
   const checkoutMutation = trpc.cart.checkout.useMutation({
@@ -48,6 +60,26 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     checkoutMutation.mutate({ storeId: selectedStore });
   };
+
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background py-12">
+        <div className="container mx-auto px-4">
+          <Card className="p-8 text-center max-w-md mx-auto">
+            <LogIn className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-bold mb-2">Sign in Required</h2>
+            <p className="text-muted-foreground mb-6">
+              Please sign in to proceed with checkout
+            </p>
+            <Button onClick={() => window.location.href = getLoginUrl()}>
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (!cartSummary || cartSummary.itemCount === 0) {
     return (

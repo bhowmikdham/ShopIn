@@ -3,8 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TrendingDown, MapPin, Clock, AlertCircle } from 'lucide-react';
+import { TrendingDown, MapPin, Clock, AlertCircle, ShoppingBag } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/_core/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface PriceComparison {
   store: {
@@ -21,6 +23,7 @@ interface PriceComparison {
 export default function LivePriceComparison() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [showComparison, setShowComparison] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   // Fetch all products
   const { data: products, isLoading: productsLoading } = trpc.pricing.getProducts.useQuery();
@@ -36,6 +39,29 @@ export default function LivePriceComparison() {
     { productId: selectedProductId },
     { enabled: showComparison && !!selectedProductId }
   );
+
+  // Add to cart mutation
+  const addToCartMutation = trpc.cart.addItem.useMutation({
+    onSuccess: () => {
+      toast.success('Added to cart!');
+    },
+    onError: () => {
+      toast.error('Please log in to add items to cart');
+    },
+  });
+
+  const handleAddToCart = (storeId: string, price: number) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to add items to cart');
+      return;
+    }
+    addToCartMutation.mutate({
+      productId: selectedProductId,
+      storeId,
+      quantity: 1,
+      pricePerUnit: price,
+    });
+  };
 
   const handleCompare = () => {
     if (selectedProductId) {
@@ -161,6 +187,18 @@ export default function LivePriceComparison() {
                   )}
                 </div>
               </div>
+              {item.inStock && item.store && (
+                <Button
+                  size="sm"
+                  className="w-full mt-3"
+                  variant={index === 0 ? 'default' : 'outline'}
+                  onClick={() => handleAddToCart(item.store!.id, item.price)}
+                  disabled={addToCartMutation.isPending}
+                >
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                  Add to Cart
+                </Button>
+              )}
             </Card>
           ))}
         </div>

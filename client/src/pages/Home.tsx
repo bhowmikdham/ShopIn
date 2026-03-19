@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/_core/hooks/useAuth';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,14 +6,31 @@ import { MapPin, Zap } from 'lucide-react';
 import LivePriceComparison from '@/components/LivePriceComparison';
 import StoreLocator from '@/components/StoreLocator';
 import SmartMealRecommender from '@/components/SmartMealRecommender';
+import { useSearch } from 'wouter';
 
 export default function Home() {
-  const { user, loading, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState('meals');
+  // Read tab from URL query string
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const tabFromUrl = params.get('tab');
+
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'meals');
 
   useEffect(() => {
-    // Initialize price sync on page load
-    console.log('[Home] Initializing real-time price sync...');
+    if (tabFromUrl && ['meals', 'prices', 'stores'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+      // Scroll to tabs section
+      setTimeout(() => {
+        document.getElementById('main-tabs')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [tabFromUrl]);
+
+  const scrollToTab = useCallback((tab: string) => {
+    setActiveTab(tab);
+    setTimeout(() => {
+      document.getElementById('main-tabs')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   }, []);
 
   return (
@@ -31,11 +47,11 @@ export default function Home() {
           <h1 className="text-5xl font-bold mb-4">Meal Store Finder</h1>
           <p className="text-xl mb-8">Real-time price comparison across Woolworths, Coles, Aldi & IGA</p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button variant="default" size="lg">
+            <Button variant="default" size="lg" onClick={() => scrollToTab('prices')}>
               <Zap className="w-4 h-4 mr-2" />
               View Live Prices
             </Button>
-            <Button variant="outline" size="lg" className="text-white border-white hover:bg-white/10">
+            <Button variant="outline" size="lg" className="text-white border-white hover:bg-white/10" onClick={() => scrollToTab('stores')}>
               <MapPin className="w-4 h-4 mr-2" />
               Find Stores Near Me
             </Button>
@@ -71,7 +87,7 @@ export default function Home() {
         </div>
 
         {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs id="main-tabs" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="meals">Meal Ideas</TabsTrigger>
             <TabsTrigger value="prices">Price Comparison</TabsTrigger>

@@ -3,17 +3,29 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, DollarSign, Package, TrendingDown, Navigation } from 'lucide-react';
+import { MapPin, DollarSign, Package, TrendingDown, Navigation, LogIn } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/_core/hooks/useAuth';
+import { getLoginUrl } from '@/const';
 import ShoppingCart from '@/components/ShoppingCart';
 
 export default function ShoppingListPage() {
   const [activeTab, setActiveTab] = useState('cart');
+  const { isAuthenticated, loading } = useAuth();
 
-  // Fetch cart data
-  const { data: cartSummary } = trpc.cart.getSummary.useQuery();
-  const { data: itemsByStore } = trpc.cart.getItemsByStore.useQuery();
-  const { data: bestStore } = trpc.cart.calculateBestStore.useQuery();
+  // Only fetch cart data when authenticated
+  const { data: cartSummary } = trpc.cart.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: itemsByStore } = trpc.cart.getItemsByStore.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: bestStore } = trpc.cart.calculateBestStore.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-AU', {
@@ -34,7 +46,24 @@ export default function ShoppingListPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Auth Gate */}
+      {!loading && !isAuthenticated ? (
+        <div className="container mx-auto px-4 py-12">
+          <Card className="p-8 text-center max-w-md mx-auto">
+            <LogIn className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-bold mb-2">Sign in Required</h2>
+            <p className="text-muted-foreground mb-6">
+              Please sign in to access your shopping list and cart
+            </p>
+            <Button onClick={() => window.location.href = getLoginUrl()}>
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+          </Card>
+        </div>
+      ) : (
+
+      /* Main Content */
       <div className="container mx-auto px-4 py-12">
         {/* Quick Stats */}
         {cartSummary && (
@@ -147,6 +176,7 @@ export default function ShoppingListPage() {
           </Card>
         )}
       </div>
+      )}
     </div>
   );
 }

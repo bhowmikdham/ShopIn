@@ -5,14 +5,25 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, Minus, ShoppingBag, AlertCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { useAuth } from '@/_core/hooks/useAuth';
 
 export default function ShoppingCart() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const { isAuthenticated } = useAuth();
 
-  // Fetch cart data
-  const { data: cartSummary, isLoading: summaryLoading, refetch: refetchSummary } = trpc.cart.getSummary.useQuery();
-  const { data: cartWithItems, isLoading: itemsLoading, refetch: refetchItems } = trpc.cart.getCartWithItems.useQuery();
-  const { data: itemsByStore, refetch: refetchByStore } = trpc.cart.getItemsByStore.useQuery();
+  // Fetch cart data (only when authenticated)
+  const { data: cartSummary, isLoading: summaryLoading, refetch: refetchSummary } = trpc.cart.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: cartWithItems, isLoading: itemsLoading, refetch: refetchItems } = trpc.cart.getCartWithItems.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const { data: itemsByStore, refetch: refetchByStore } = trpc.cart.getItemsByStore.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   // Cart mutations
   const removeItemMutation = trpc.cart.removeItem.useMutation({

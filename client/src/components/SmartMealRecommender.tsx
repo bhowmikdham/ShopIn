@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Utensils, TrendingDown } from 'lucide-react';
+import { Clock, Utensils, TrendingDown, Check } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 
 interface MealRecommendation {
   id: string;
@@ -78,6 +79,7 @@ const MEAL_RECOMMENDATIONS: MealRecommendation[] = [
 export default function SmartMealRecommender() {
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<MealRecommendation | null>(null);
+  const [addedMeals, setAddedMeals] = useState<Set<string>>(new Set());
 
   // Get current time-based meal type
   const currentMealType = useMemo(() => {
@@ -216,8 +218,30 @@ export default function SmartMealRecommender() {
                 </div>
               </div>
 
-              <Button className="w-full" size="sm" variant="outline">
-                Add to Shopping List
+              <Button
+                className="w-full"
+                size="sm"
+                variant={addedMeals.has(meal.id) ? 'secondary' : 'outline'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (addedMeals.has(meal.id)) {
+                    toast.info(`${meal.name} is already in your list`);
+                    return;
+                  }
+                  setAddedMeals((prev) => new Set(prev).add(meal.id));
+                  toast.success(`${meal.name} added to shopping list!`, {
+                    description: `${meal.ingredients.length} ingredients • Est. ${formatCurrency(meal.estimatedCost)}`,
+                  });
+                }}
+              >
+                {addedMeals.has(meal.id) ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Added to List
+                  </>
+                ) : (
+                  'Add to Shopping List'
+                )}
               </Button>
             </Card>
           ))}

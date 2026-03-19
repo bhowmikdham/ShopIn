@@ -192,3 +192,10 @@
     }
   }
 }
+
+/* Leaflet custom marker overrides */
+.leaflet-store-marker,
+.leaflet-user-marker {
+  background: none !important;
+  border: none !important;
+}

@@ -2,6 +2,7 @@ import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
+import { useFirebaseAuth, isFirebaseConfigured } from "@/hooks/useFirebaseAuth";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -9,8 +10,33 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  const { redirectOnUnauthenticated = false, redirectPath } =
     options ?? {};
+  const resolvedRedirectPath = redirectPath ?? getLoginUrl();
+
+  // Firebase auth (used when Firebase is configured)
+  const firebase = useFirebaseAuth();
+
+  // If Firebase is configured, use Firebase Auth entirely
+  if (isFirebaseConfigured) {
+    return {
+      user: firebase.user,
+      loading: firebase.loading,
+      error: firebase.error,
+      isAuthenticated: firebase.isAuthenticated,
+      refresh: firebase.refresh,
+      logout: firebase.logout,
+      login: firebase.login,
+    };
+  }
+
+  // Otherwise, fall back to original tRPC / OAuth auth
+  return useTrpcAuth({ redirectOnUnauthenticated, redirectPath: resolvedRedirectPath });
+}
+
+/** Original tRPC-based auth (Manus OAuth) */
+function useTrpcAuth(options: { redirectOnUnauthenticated: boolean; redirectPath: string }) {
+  const { redirectOnUnauthenticated, redirectPath: resolvedRedirectPath } = options;
   const utils = trpc.useUtils();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -65,12 +91,12 @@ export function useAuth(options?: UseAuthOptions) {
     if (meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
-    if (window.location.pathname === redirectPath) return;
+    if (window.location.pathname === resolvedRedirectPath) return;
 
-    window.location.href = redirectPath
+    window.location.href = resolvedRedirectPath
   }, [
     redirectOnUnauthenticated,
-    redirectPath,
+    resolvedRedirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
     state.user,
